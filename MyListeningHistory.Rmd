@@ -1,0 +1,306 @@
+---
+title: "My Spotify Listening"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    source_code: embed
+---
+<style>                  
+
+  .navbar {
+    background-color: #262626;
+  }
+ .navbar-inverse .navbar-nav>.active>a, .navbar-inverse .navbar-nav>.active>a:hover, .navbar-inverse  .navbar-nav>.active>a:focus >a {
+    background-color: #1DB954 !important;
+  }
+.navbar-inverse .navbar-nav>li>a:hover, .navbar-inverse .navbar-nav>li>a:focus {
+    background-color: #464646;
+  }
+  
+</style>
+```{r global, include=FALSE}
+
+library(flexdashboard) # r to html
+library(jsonlite)      # parse JSON 
+library(tidyverse)     # data wrangling
+library(highcharter)   # R wrapper for Highcharts
+library(DT)            # dynamic tables
+
+setwd("/Users/davidmateos/Downloads/MySpotifyData")
+
+## read files delivered by Spotify
+listeningHistory1 <- read_json("StreamingHistory0.json", simplifyVector = TRUE)
+listeningHistory2 <- read_json("StreamingHistory1.json", simplifyVector = TRUE)
+listeningHistory3 <- read_json("StreamingHistory2.json", simplifyVector = TRUE)
+listeningHistory  <- as_tibble(do.call("rbind", list(listeningHistory1, 
+                                                     listeningHistory2,
+                                                     listeningHistory3)))
+
+## Take out what was skipped (only keep 30+ sec)
+listeningHistory <- listeningHistory %>% filter(msPlayed > 29999)
+
+## Podcasts I listened to since there are is no is_podcast field
+podcasts <- c("The Daily", "Pod Save America", "Lovett or Leave It",
+              "The Daily Show With Trevor Noah: Ears Edition", "Setlist",
+              "Planet Money", "Keep It!", "The Indicator from Planet Money", 
+              "Reply All", "What A Day", "Rough Translation", 
+              "The Spurs Show", "Little Gold Men", "Pod Save the World")
+
+```
+
+About
+=======================================================================
+<br> 
+
+#### <b> Welcome! </b>
+
+<br>
+This is a quick, simple dashboard made with R using my Spotify listening activity. 
+This data was personally requested and can be similarly <br> retrieved at (https://www.spotify.com/us/account/privacy/) under the 'Donwload Your Data' section. Be warned, this process could take up to a week. 
+<br>
+<br>
+
+Key things to note about this project:
+
+- Dataset spans from January 10th, 2019 - January 10th, 2020. 
+
+- Key packages used: flexdashboard, highcharter, DT
+
+- The data provided 4 attributes per record: Track Name, Artist Name, Duration of Play, and Time of Play
+
+- Source code is provided above, feel free to replicate with your own data
+
+<br>
+
+Interesting Findings:
+
+- My most listened to genres by artists spent most listening : Pop, Rock, Classic Rock, Latin
+
+- I listen to music the most during the hours of 5-8PM, when I workout
+
+- I listen to podcasts the most at 9am, during my morning commute
+
+- On July 21st, I listened to 20 hours of music!
+
+<br>
+<br>
+This excercise was inspired by Spotify's 'Year-End Wrapped' campaign and is continuously updated.
+
+
+<b>Contact:</b> davidumateos@gmail.com
+
+Music
+=======================================================================
+
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+### Per Day
+
+```{r fig.height= 7}
+
+## take only the date from datetime class and change to EST
+musicListeningHistory <- listeningHistory %>% 
+                           filter(!artistName %in% podcasts) %>%
+                           mutate(datePlayed= 
+                                      as.Date(format(as.POSIXct(endTime, tz = "UTC"), "%Y/%m/%d", tz="America/New_York", usetz=T))) %>% 
+                           mutate(sPlayed = round(msPlayed/1000/60,2))
+
+musicListeningHistory %>%
+  group_by(datePlayed) %>%
+  summarise(time= round(sum(sPlayed)/60,1)) %>% 
+  hchart(type = "column", hcaes(x = datePlayed, y = time), 
+         name = "Time", color = "#1DB954") %>%
+    hc_xAxis(title = list(text = "")) %>%
+    hc_yAxis(title = list(text = "Time Listened (Hrs)")) %>%
+    hc_title(text = "When and How much do I listen?", align = "right") %>%
+    hc_add_theme(hc_theme_elementary()) 
+
+```
+
+### Per Hour
+```{r}
+
+## take only the time from datetime class and change to EST
+musicListeningHistory <- listeningHistory %>% 
+                            filter(!artistName %in% podcasts) %>%
+                            mutate(timePlayed= 
+                                     format(as.POSIXct(endTime, tz = "UTC"), "%H", 
+                                            tz="America/New_York", 
+                                            usetz=F)) %>%
+                            mutate(sPlayed = round(msPlayed/1000/60,2))
+
+musicListeningHistory %>%
+  group_by(timePlayed) %>%
+  summarise(time= round(sum(sPlayed)/60,1)) %>% 
+  hchart(type = "column", hcaes(x = timePlayed, y = time), 
+         name = "Time", color = "#1DB954") %>%
+    hc_xAxis(title = list(text = "Time of Day")) %>%
+    hc_yAxis(title = list(text = "Time Listened (Hrs)")) %>%
+    hc_title(text = "When and How much do I listen?", align = "right") %>%
+    hc_add_theme(hc_theme_elementary())
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Top Artists
+
+```{r}
+
+topArtists <- musicListeningHistory %>%
+                 group_by(artistName) %>%
+                 summarise(`Time Listened (hr)`= round(sum(sPlayed)/60, 1)) %>%
+                 top_n(10) %>% # take the top 10
+                 arrange(-`Time Listened (hr)`) %>% 
+                 rename(Artist = artistName)
+
+datatable(topArtists,
+          options = list(bPaginate = FALSE,
+                         scrollY = FALSE,
+                         searching = FALSE,
+                         ordering = FALSE,
+                         bInfo = FALSE,
+                         columnDefs =
+                           list(
+                             list(
+                               className = 'dt-center',
+                               targets = c(2))),
+                             list(
+                               className = 'dt-left',
+                               targets = c(1))
+                         ),
+          class = 'compact')
+
+```
+
+### Top Tracks
+
+```{r}
+
+topTracks <- musicListeningHistory %>%
+                 group_by(trackName) %>%
+                 summarise(`Time Listened (min)`= round(sum(sPlayed))) %>%
+                 top_n(10) %>% # take the top 10
+                 arrange(-`Time Listened (min)`) %>% 
+                 rename(Track = trackName)
+
+datatable(topTracks,
+          options = list(bPaginate = FALSE,
+                         scrollY = FALSE,
+                         searching = FALSE,
+                         ordering = FALSE,
+                         bInfo = FALSE,
+                         columnDefs =
+                           list(
+                             list(
+                               className = 'dt-center',
+                               targets = c(2)),
+                             list(
+                               className = 'dt-left',
+                               targets = c(1)))
+                         ),
+          class = 'compact')
+
+```
+
+Podcasts
+=======================================================================
+
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+### Per Day
+
+```{r fig.height= 8}
+
+podcastListeningHistory <- listeningHistory %>% 
+                             filter(artistName %in% podcasts) %>%
+                             mutate(datePlayed= as.Date(endTime)) %>% 
+                             mutate(sPlayed = round(msPlayed/1000/60,2))
+
+podcastListeningHistory %>%
+  group_by(datePlayed) %>%
+  summarise(time= round(sum(sPlayed)/60,1)) %>% 
+  hchart(type = "column", hcaes(x = datePlayed, y = time), 
+         name = "Time", color = "#1DB954") %>%
+    hc_xAxis(title = list(text = "")) %>%
+    hc_yAxis(title = list(text = "Time Listened (Hrs)")) %>%
+    hc_title(text = "When and How much do I listen?", align = "right") %>%
+    hc_add_theme(hc_theme_elementary()) 
+
+```
+
+### Per Hour
+
+```{r}
+
+podcastListeningHistory <- listeningHistory %>% 
+                              filter(artistName %in% podcasts) %>%
+                              mutate(timePlayed= 
+                                         format(as.POSIXct(endTime, tz = "UTC"), "%H", 
+                                                tz="America/New_York", 
+                                                usetz=F)) %>%
+                                mutate(sPlayed = round(msPlayed/1000/60)) 
+
+podcastListeningHistory %>%
+  group_by(timePlayed) %>%
+  summarise(time= round(sum(sPlayed)/60,1)) %>% 
+  hchart(type = "column", hcaes(x = timePlayed, y = time), 
+         name = "Time", color = "#1DB954") %>%
+    hc_xAxis(title = list(text = "Time of Day")) %>%
+    hc_yAxis(title = list(text = "Time Listened (Hrs)")) %>%
+    hc_title(text = "When and How much do I listen?", align = "right") %>%
+    hc_add_theme(hc_theme_elementary())
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Top Podcasts
+
+```{r}
+
+## add the total time listened by podcast
+topPodcasts <- podcastListeningHistory %>%
+                 group_by(artistName) %>%
+                 summarise(`Total Time Listened (hr)`= round(sum(msPlayed)/1000/3600, 1)) %>%
+                 top_n(10) %>% # take the top 10
+                 arrange(-`Total Time Listened (hr)`) %>%
+                 rename(Podcast = artistName)
+
+## count how many unique episodes were listened to 
+## to control for start and stopping an episode group by twice
+topPodcastsEpisodes <- podcastListeningHistory %>%
+                            group_by(artistName, trackName) %>%
+                            summarise(n = n()) %>%
+                            group_by(artistName) %>%
+                            summarise(n = n()) %>%
+                            arrange(-n) %>%
+                            rename(Podcast = artistName) %>%
+                            rename(Episodes = n)
+
+
+## join the tibbles above by podcast name
+topPodcasts <- topPodcasts %>% 
+                  inner_join(topPodcastsEpisodes) %>%
+                  mutate(`Avg Episode Length (min)` = 
+                           round(`Total Time Listened (hr)`*60/Episodes))
+
+datatable(topPodcasts,
+          options = list(bPaginate = FALSE,
+                         scrollY = FALSE,
+                         searching = FALSE,
+                         bInfo = FALSE,
+                         columnDefs =
+                           list(
+                             list(
+                               className = 'dt-center',
+                               targets = c(2,3,4)),
+                             list(
+                               className = 'dt-left',
+                               targets = c(1)))
+                         ),
+          class = 'compact')
+
+```
