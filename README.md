@@ -4,7 +4,7 @@ Log in to https://www.spotify.com/us/account/privacy/ to populate the dashboard 
 
 My delivery time for these files was about 4 days. 
 
-Feel free to ignore the R markup in the About section as that is specific to my own data. 
+Feel free to ignore the markdown in the About section as that is specific to my own data. 
 
 Flexdashboard documentation:
 https://rmarkdown.rstudio.com/flexdashboard/shiny.html
