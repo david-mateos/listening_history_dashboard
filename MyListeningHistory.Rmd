@@ -27,6 +27,9 @@ library(highcharter)   # R wrapper for Highcharts
 library(DT)            # dynamic tables
 
 setwd("/Users/davidmateos/Downloads/MySpotifyData")
+spotify_green <- "#1DB954" 
+spotify_dark <- "#464646" 
+spotify_gray <- "#6D6D6D" 
 
 ## read files delivered by Spotify
 listeningHistory1 <- read_json("StreamingHistory0.json", simplifyVector = TRUE)
@@ -89,6 +92,156 @@ This excercise was inspired by Spotify's 'Year-End Wrapped' campaign and is cont
 
 <b>Contact:</b> davidumateos@gmail.com
 
+
+Summary
+=======================================================================
+
+Row {data-height=200}
+-----------------------------------------------------------------------
+
+### Total
+
+```{r}
+total_time <- listeningHistory %>% 
+                select(msPlayed) %>% 
+                mutate(minPlayed = round(msPlayed/1000/60,3)) %>%
+                select(minPlayed) %>% 
+                summarise(sum=round(sum(minPlayed)))
+
+total_time <- round(total_time$sum/60) #in hours
+
+valueBox(paste(total_time, "Hours", sep = " "), 
+         caption="Listened", 
+         icon = "fa-spotify", 
+         color = spotify_dark)
+```
+
+### Total by Day
+
+```{r}
+total_time <- listeningHistory %>% 
+                select(msPlayed) %>% 
+                mutate(minPlayed = round(msPlayed/1000/60,3)) %>%
+                select(minPlayed) %>% 
+                summarise(sum=round(sum(minPlayed)))
+
+total_time <- round(total_time$sum/60/365, 1) #in hours
+
+valueBox(paste(total_time, "Hours", sep=" "), 
+         caption="Average Daily Listening", 
+         icon = "fa-spotify", 
+         color = spotify_dark)
+```
+
+### Total by Music
+
+```{r}
+total_music_time <- listeningHistory %>% 
+                      filter(!artistName %in% podcasts) %>%
+                      select(msPlayed) %>% 
+                      summarise(sum=sum(msPlayed))
+
+total_music_time <- round(total_music_time$sum/1000/60/60) #in hours
+
+valueBox(paste(total_music_time, "Hours", sep = " "),
+         caption="Music Played", 
+         icon = "fa-music", 
+         color = spotify_green)
+```
+
+### Total by Podcasts
+
+```{r}
+total_podcast_time <- listeningHistory %>% 
+                      filter(artistName %in% podcasts) %>%
+                      select(msPlayed) %>% 
+                      summarise(sum=sum(msPlayed))
+total_podcast_time <- round(total_podcast_time$sum/1000/60/60) #in hours
+
+valueBox(paste(total_podcast_time, "Hours", sep = " "), 
+         caption="Podcasts Played", 
+         icon = "fa-podcast", 
+         color = spotify_green)
+```
+
+Row {data-height=150}
+-----------------------------------------------------------------------
+
+### Top Artist
+
+```{r}
+
+topArtist <- listeningHistory %>% 
+                filter(!artistName %in% podcasts) %>%
+                 group_by(artistName) %>%
+                 summarise(time_listened= round(sum(msPlayed)/1000, 1)) %>%
+                 top_n(1) %>% select(artistName)
+
+valueBox(topArtist$artistName, 
+         caption="Top Artist", 
+         icon = "fa-music", 
+         color = spotify_green)
+```
+
+### Top Podcast
+
+```{r}
+
+topPod <- listeningHistory %>% 
+                filter(artistName %in% podcasts) %>%
+                 group_by(artistName) %>%
+                 summarise(time_listened= round(sum(msPlayed)/1000, 1)) %>%
+                 top_n(1) %>% select(artistName)
+
+valueBox(topPod$artistName, 
+         caption="Top Podcast", 
+         icon = "fa-podcast", 
+         color = spotify_dark)
+```
+
+Row {data-height=150}
+-----------------------------------------------------------------------
+
+### Top Song 
+```{r}
+topTrack <- listeningHistory %>% 
+                filter(!artistName %in% podcasts) %>%
+                 group_by(trackName) %>%
+                 summarise(time_listened= round(sum(msPlayed)/1000, 1)) %>%
+                 top_n(1) %>% select(trackName)
+topTrackArtist <- listeningHistory %>% 
+                  filter(trackName == topTrack$trackName) %>% 
+                  top_n(1) %>% select(artistName)
+
+topTrack <- gsub("- ", replacement = "",topTrack$trackName)
+
+valueBox(paste(topTrack, topTrackArtist$artistName, sep = " - "),
+         caption="Top Track", 
+         icon = "fa-music", 
+         color = spotify_dark)
+```
+
+Row {data-height=150}
+-----------------------------------------------------------------------
+### Top Episode
+```{r}
+topEp<- listeningHistory %>% 
+                filter(artistName %in% podcasts) %>%
+                 group_by(trackName) %>%
+                 summarise(time_listened= round(sum(msPlayed)/1000, 1)) %>%
+                 top_n(1) %>% select(trackName)
+topEpPod <- listeningHistory %>% 
+                  filter(trackName == topEp$trackName) %>% 
+                  top_n(1) %>% select(artistName)
+
+topEp <- gsub("“" , replacement = "",topEp$trackName)
+topEp <- gsub("”", replacement = "",topEp)
+valueBox(paste(topEp, topEpPod$artistName, sep = " - "), 
+         caption="Top Episode", 
+         icon = "fa-podcast", 
+         color = spotify_dark)
+```
+
 Music
 =======================================================================
 
@@ -97,7 +250,7 @@ Row {.tabset .tabset-fade}
 
 ### Per Day
 
-```{r fig.height= 7}
+```{r fig.height= 6}
 
 ## take only the date from datetime class and change to EST
 musicListeningHistory <- listeningHistory %>% 
@@ -110,7 +263,7 @@ musicListeningHistory %>%
   group_by(datePlayed) %>%
   summarise(time= round(sum(sPlayed)/60,1)) %>% 
   hchart(type = "column", hcaes(x = datePlayed, y = time), 
-         name = "Time", color = "#1DB954") %>%
+         name = "Time", color = spotify_green) %>%
     hc_xAxis(title = list(text = "")) %>%
     hc_yAxis(title = list(text = "Time Listened (Hrs)")) %>%
     hc_title(text = "When and How much do I listen?", align = "right") %>%
@@ -134,7 +287,7 @@ musicListeningHistory %>%
   group_by(timePlayed) %>%
   summarise(time= round(sum(sPlayed)/60,1)) %>% 
   hchart(type = "column", hcaes(x = timePlayed, y = time), 
-         name = "Time", color = "#1DB954") %>%
+         name = "Time", color = spotify_green) %>%
     hc_xAxis(title = list(text = "Time of Day")) %>%
     hc_yAxis(title = list(text = "Time Listened (Hrs)")) %>%
     hc_title(text = "When and How much do I listen?", align = "right") %>%
@@ -151,7 +304,7 @@ Row
 topArtists <- musicListeningHistory %>%
                  group_by(artistName) %>%
                  summarise(`Time Listened (hr)`= round(sum(sPlayed)/60, 1)) %>%
-                 top_n(10) %>% # take the top 10
+                 top_n(25) %>% # show the top 25 Artists
                  arrange(-`Time Listened (hr)`) %>% 
                  rename(Artist = artistName)
 
@@ -181,7 +334,7 @@ datatable(topArtists,
 topTracks <- musicListeningHistory %>%
                  group_by(trackName) %>%
                  summarise(`Time Listened (min)`= round(sum(sPlayed))) %>%
-                 top_n(10) %>% # take the top 10
+                 top_n(50) %>% # show the top 50
                  arrange(-`Time Listened (min)`) %>% 
                  rename(Track = trackName)
 
@@ -223,7 +376,7 @@ podcastListeningHistory %>%
   group_by(datePlayed) %>%
   summarise(time= round(sum(sPlayed)/60,1)) %>% 
   hchart(type = "column", hcaes(x = datePlayed, y = time), 
-         name = "Time", color = "#1DB954") %>%
+         name = "Time", color = spotify_green) %>%
     hc_xAxis(title = list(text = "")) %>%
     hc_yAxis(title = list(text = "Time Listened (Hrs)")) %>%
     hc_title(text = "When and How much do I listen?", align = "right") %>%
@@ -247,7 +400,7 @@ podcastListeningHistory %>%
   group_by(timePlayed) %>%
   summarise(time= round(sum(sPlayed)/60,1)) %>% 
   hchart(type = "column", hcaes(x = timePlayed, y = time), 
-         name = "Time", color = "#1DB954") %>%
+         name = "Time", color = spotify_green) %>%
     hc_xAxis(title = list(text = "Time of Day")) %>%
     hc_yAxis(title = list(text = "Time Listened (Hrs)")) %>%
     hc_title(text = "When and How much do I listen?", align = "right") %>%
