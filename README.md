@@ -9,7 +9,7 @@ Feel free to ignore the markdown in the About section as that is specific to my 
 Dashboard should look like this:
 ![alt text](https://github.com/david-mateos/listening_history_dashboard/blob/master/dashboard_SummaryPreview.png?raw=true)
 
-![alt text](https://github.com/david-mateos/listening_history_dashboard/blob/master/dashboard_preview.png?raw=true)
+![alt text](https://github.com/david-mateos/listening_history_dashboard/blob/master/dashboard_preview2.png?raw=true)
 
 Flexdashboard documentation:
 https://rmarkdown.rstudio.com/flexdashboard/shiny.html
